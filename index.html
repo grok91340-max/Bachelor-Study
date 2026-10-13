@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>স্টাডি পার্টনার ও টাইমার</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #f4f7f6; display: flex; justify-content: center; padding: 20px; }
+    .app-container { background: #fff; width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 24px; }
+    h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+    
+    .card { background: #eef2f5; padding: 16px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+    input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+    button { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    button:hover { background: #219150; }
+    button.stop { background: #e74c3c; }
+    button.stop:hover { background: #c0392b; }
+
+    .timer-display { font-size: 42px; font-weight: bold; color: #2c3e50; margin: 15px 0; font-family: monospace; }
+    
+    .leaderboard { margin-top: 20px; }
+    .leaderboard h3 { margin-bottom: 12px; color: #34495e; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+    .user-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; }
+    .user-row.active { border-left: 5px solid #27ae60; background: #f0fff4; }
+    .user-name { font-weight: bold; color: #333; }
+    .user-time { font-family: monospace; font-size: 18px; color: #2980b9; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <h2>📚 ৩ বন্ধু স্টাডি ক্লাব</h2>
+
+  <!-- লগইন সেকশন -->
+  <div id="login-section" class="card">
+    <h3>আপনার আইডি নাম দিন</h3>
+    <input type="text" id="username-input" placeholder="যেমন: রফিক/শফিক/জব্বার">
+    <button onclick="login()">আইডিতে প্রবেশ করুন</button>
+  </div>
+
+  <!-- টাইমার সেকশন -->
+  <div id="timer-section" style="display: none;">
+    <div class="card">
+      <h3 id="welcome-msg">স্বাগতম!</h3>
+      <div class="timer-display" id="timer-display">00:00:00</div>
+      <button id="toggle-btn" onclick="toggleTimer()">পড়া শুরু করুন (Start)</button>
+    </div>
+
+    <!-- লিডারবোর্ড -->
+    <div class="leaderboard">
+      <h3>🏆 লাইভ লিডারবোর্ড (কে কতক্ষণ পড়ল)</h3>
+      <div id="leaderboard-list">
+        <!-- বন্ধুদের ডাটা এখানে দেখাবে -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentUser = "";
+  let timerInterval = null;
+  let isRunning = false;
+
+  // বন্ধুদের ডাটা সংরক্ষণ করার লোকাল স্টোরেজ হেল্পার
+  function getUsersData() {
+    return JSON.parse(localStorage.getItem('study_friends_data')) || {};
+  }
+
+  function saveUsersData(data) {
+    localStorage.setItem('study_friends_data', JSON.stringify(data));
+  }
+
+  // লগইন ফাংশন
+  function login() {
+    const input = document.getElementById('username-input').value.trim();
+    if (!input) {
+      alert("দয়া করে আপনার নাম বা আইডি লিখুন!");
+      return;
+    }
+
+    currentUser = input;
+    let users = getUsersData();
+
+    // নতুন বন্ধু হলে তার ডাটা ইনিশিয়ালাইজ করা
+    if (!users[currentUser]) {
+      users[currentUser] = 0; // মোট পড়ার সময় (সেকেন্ডে)
+      saveUsersData(users);
+    }
+
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('timer-section').style.display = 'block';
+    document.getElementById('welcome-msg').innerText = "স্বাগতম, " + currentUser + "!";
+    
+    updateLeaderboard();
+  }
+
+  // টাইমার প্লে/পজ
+  function toggleTimer() {
+    const btn = document.getElementById('toggle-btn');
+    if (!isRunning) {
+      isRunning = true;
+      btn.innerText = "পজ করুন (Pause)";
+      btn.classList.add('stop');
+      
+      timerInterval = setInterval(() => {
+        let users = getUsersData();
+        users[currentUser] = (users[currentUser] || 0) + 1;
+        saveUsersData(users);
+        
+        document.getElementById('timer-display').innerText = formatTime(users[currentUser]);
+        updateLeaderboard();
+      }, 1000);
+    } else {
+      isRunning = false;
+      clearInterval(timerInterval);
+      btn.innerText = "পড়া শুরু করুন (Start)";
+      btn.classList.remove('stop');
+    }
+  }
+
+  // টাইম ফরম্যাট (HH:MM:SS)
+  function formatTime(totalSeconds) {
+    let hrs = Math.floor(totalSeconds / 3600);
+    let mins = Math.floor((totalSeconds % 3600) / 60);
+    let secs = totalSeconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  // লিডারবোর্ড আপডেট
+  function updateLeaderboard() {
+    const list = document.getElementById('leaderboard-list');
+    let users = getUsersData();
+    list.innerHTML = "";
+
+    // সময় অনুযায়ী ক্রমানুসারে সাজানো
+    let sortedUsers = Object.keys(users).sort((a, b) => users[b] - users[a]);
+
+    sortedUsers.forEach(user => {
+      let isMe = user === currentUser;
+      let row = document.createElement('div');
+      row.className = `user-row ${isMe ? 'active' : ''}`;
+      row.innerHTML = `
+        <span class="user-name">${user} ${isMe ? '(আপনি)' : ''}</span>
+        <span class="user-time">${formatTime(users[user])}</span>
+      `;
+      list.appendChild(row);
+    });
+  }
+</script>
+
+</body>
+</html>
